@@ -21,9 +21,9 @@ local clutchFrames = 0
 local shiftDisplay = {}
 
 local goldsplits = { -- The golden 5.57 shifts
-			0.00, 0.30, 1.00, 1.80,
-			2.53, 2.90, 3.34, 3.64, 3.90, 5.57
-		}
+	0.00, 0.30, 1.00, 1.80,
+	2.53, 2.90, 3.34, 3.64, 3.90, 5.57
+}
 
 local function isClutchPressed(inp, activePly)
 	return inp == 11 and activePly == 0
@@ -60,7 +60,7 @@ while true do
 	if isClutchReleased(input, lastinput) then
 		shifts = shifts + 1
 
-			-- If the game detected the clutch depressed for at least one frame
+		-- If the game detected the clutch depressed for at least one frame
 		if clutchFrames > 0 and seconds == 170 then -- Timer hasn't started
 			shiftDisplay[shifts] = {
 				str = string.format("%d: EARLY", shifts),
