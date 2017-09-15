@@ -44,83 +44,81 @@ end
 
 -- Script declaration
 while true do
-		-- Read Memory
-		seconds = memory.readbyte(0x33,"Main RAM")
-		fraction = memory.readbyte(0x35,"Main RAM")
-		input = memory.readbyte(0x2D,"Main RAM")
-		transmission = memory.readbyte(0x4C,"Main RAM")
-		activePlayer = memory.readbyte(0x0F,"Main RAM")
+	-- Read Memory
+	seconds = memory.readbyte(0x33,"Main RAM")
+	fraction = memory.readbyte(0x35,"Main RAM")
+	input = memory.readbyte(0x2D,"Main RAM")
+	transmission = memory.readbyte(0x4C,"Main RAM")
+	activePlayer = memory.readbyte(0x0F,"Main RAM")
 
-		-- Clutch is down
-		if isClutchPressed(input, activePlayer) then
-			clutchFrames = clutchFrames + 1
+	-- Clutch is down
+	if isClutchPressed(input, activePlayer) then
+		clutchFrames = clutchFrames + 1
+	end
+
+	-- Clutch is released
+	if isClutchReleased(input, lastinput) then
+		shifts = shifts + 1
+
+			-- If the game detected the clutch depressed for at least one frame
+		if clutchFrames > 0 and seconds == 170 then -- Timer hasn't started
+			shiftDisplay[shifts] = {
+				str = string.format("%d: EARLY", shifts),
+				color = "red"
+			}
+		elseif clutchFrames > 0 then
+			if fraction < 10 then
+				fraction = "0"..fraction -- add the 0 for fractions that need it
+			end
+
+			local rawtime = string.format("%d.%s", seconds, fraction)
+			local shifttime = tonumber(string.format("%.2f", rawtime))
+			local shifttarget = goldsplits[shifts] -- Gold split for this gear
+
+			if shifttime and shifttarget then -- Nullcheck prevents oddball errors
+				calcDisposition(shifttime, shifttarget)
+			end
+
+			local txtcolor
+			if shifttime == shifttarget then -- Compare to gold split
+				txtcolor = "gold"
+			elseif disposition < 15 then -- We've missed less than 15 frames
+				txtcolor = "green"
+			else
+				txtcolor = "red"
+			end
+
+			shiftDisplay[shifts] = {
+				str = string.format("%d: %.2f (%d leeway, %d clutch)", shifts, shifttime, 15 - disposition, clutchFrames),
+				color = txtcolor
+			}
+		else -- If we get here, the input was dropped
+			shiftDisplay[shifts] = {
+				str = string.format("%d: INPUT DROP", shifts),
+				color = "red"
+			}
 		end
 
-		-- Clutch is released
-		if isClutchReleased(input, lastinput) then
-		    shifts = shifts + 1
+		clutchFrames = 0
+	end
 
-				-- If the game detected the clutch depressed for at least one frame
-				if clutchFrames > 0 then
-						if seconds == 170 then -- Timer hasn't started
-							shiftDisplay[shifts] = {
-								str = string.format("%d: EARLY", shifts),
-								color = "red"
-							}
-						else
-							if fraction < 10 then
-								fraction = "0"..fraction -- add the 0 for fractions that need it
-							end
+	-- Reinstate on reset
+	if isResetPressed(input) then
+		shifts = 0
+		clutchFrames = 0
+		shiftDisplay = {}
+		disposition = 0
+	end
 
-							local rawtime = string.format("%d.%s", seconds, fraction)
-							local shifttime = tonumber(string.format("%.2f", rawtime))
-							local shifttarget = goldsplits[shifts] -- Gold split for this gear
+	-- Draw GUI
+	for gearvalue,gear in ipairs(shiftDisplay) do
+		if gearvalue > 9 then break end -- Skip 10th gear, because the time is captured too early
+		gui.text(0, gearvalue * 12 + 300, gear.str, gear.color)
+	end
 
-							if shifttime and shifttarget then -- Nullcheck prevents oddball errors
-								calcDisposition(shifttime, shifttarget)
-							end
+	-- Set last input
+	lastinput = input
 
-							local txtcolor
-							if shifttime == shifttarget then -- Compare to gold split
-								txtcolor = "gold"
-							elseif disposition < 15 then -- We've missed less than 15 frames
-								txtcolor = "green"
-							else
-								txtcolor = "red"
-							end
-
-							shiftDisplay[shifts] = {
-								str = string.format("%d: %.2f (%d leeway, %d clutch)", shifts, shifttime, 15 - disposition, clutchFrames),
-								color = txtcolor
-							}
-				  	end
-				else -- If we get here, the input was dropped
-					shiftDisplay[shifts] = {
-						str = string.format("%d: INPUT DROP", shifts),
-						color = "red"
-					}
-				end
-
-				clutchFrames = 0
-		end
-
-		-- Reinstate on reset
-		if isResetPressed(input) then
-			shifts = 0
-			clutchFrames = 0
-			shiftDisplay = {}
-			disposition = 0
-		end
-
-		-- Draw GUI
-		for gearvalue,gear in ipairs(shiftDisplay) do
-				if gearvalue > 9 then break end -- Skip 10th gear, because the time is captured too early
-				gui.text(0, gearvalue * 12 + 300, gear.str, gear.color)
-		end
-
-		-- Set last input
-		lastinput = input
-
-		-- Advance frame
-		emu.frameadvance()
+	-- Advance frame
+	emu.frameadvance()
 end
