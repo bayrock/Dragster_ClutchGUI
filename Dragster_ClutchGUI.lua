@@ -1,75 +1,126 @@
 --[[
-Dragster Clutching Display Script
-Version 1.0
+Dragster 5.57 Clutch GUI Script
+Version 1.1
 Date 2017-09-12
 Written by Elipsis
+Modified by Bayrock
 
 This script was written and tested for BizHawk.  Basically, it will track and display how the clutch is used throughout a run.  The format is as follows.
 
-InputNumber: TimeOfButtonRelease (NumberOfPlayerOneFramesHeldDown)
+InputNumber: TimeOfButtonRelease (EstimatedLeeway, clutchFrames)
 
-Note that I had to account for the fact that this game only processes inputs for player 1 on every other frame.  This means that it is possible to do a 1/60th second button press on an odd frame and not get a clutch.
+Elipsis Note: I had to account for the fact that this game only processes inputs for player 1 on every other frame.  This means that it is possible to do a 1/60th second button press on an odd frame and not get a clutch.
 A 3/60th of a frame button press may clutch for 1 or 2 increments of time for player 1.
-
-Outstanding issues:
-Alternating processing causes the script to be one frame ahead of game display of clutch on 50% of the frames.
-Displays "1.03" as "1.3" whereas "1.30" is correct
 --]]
 
-shifts = 0
-clutchFrames = 0
-shiftDisplay = {}
+-- Variable/function declaration
+local lastinput
+local disposition = 0
+local shifts = 0
+local clutchFrames = 0
+local shiftDisplay = {}
 
+local goldsplits = { -- The golden 5.57 shifts
+			0.00, 0.30, 1.00, 1.80,
+			2.53, 2.90, 3.34, 3.64, 3.90, 5.57
+		}
+
+local function isClutchPressed(inp, activePly)
+	return inp == 11 and activePly == 0
+end
+
+local function isClutchReleased(inp, lastinp)
+	return inp == 15 and lastinp == 11
+end
+
+local function isResetPressed(inp)
+	return inp == 7
+end
+
+local function calcDisposition(time, targettime)
+	local newdispo = (time/0.03) - (targettime/0.03)
+	disposition = disposition + math.abs(newdispo)
+end
+
+-- Script declaration
 while true do
+		-- Read Memory
+		seconds = memory.readbyte(0x33,"Main RAM")
+		fraction = memory.readbyte(0x35,"Main RAM")
+		input = memory.readbyte(0x2D,"Main RAM")
+		transmission = memory.readbyte(0x4C,"Main RAM")
+		activePlayer = memory.readbyte(0x0F,"Main RAM")
 
-    --Read Memory
-    seconds = memory.readbyte(0x33,"Main RAM")
-    fraction = memory.readbyte(0x35,"Main RAM")
-    input = memory.readbyte(0x2D,"Main RAM")
-    gear = memory.readbyte(0x4C,"Main RAM")
-    activePlayer = memory.readbyte(0x0F,"Main RAM")
+		-- Clutch is down
+		if isClutchPressed(input, activePlayer) then
+			clutchFrames = clutchFrames + 1
+		end
 
-    --Clutch is down
-    if (input == 11 and activePlayer == 0) then
-        clutchFrames = clutchFrames + 1
-    end
+		-- Clutch is released
+		if isClutchReleased(input, lastinput) then
+		    shifts = shifts + 1
 
-    --Clutch is released
-    if (input == 15 and lastinput == 11) then
+				-- If the game detected the clutch depressed for at least one frame
+				if clutchFrames > 0 then
+						if seconds == 170 then -- Timer hasn't started
+							shiftDisplay[shifts] = {
+								str = string.format("%d: EARLY", shifts),
+								color = "red"
+							}
+						else
+							if fraction < 10 then
+								fraction = "0"..fraction -- add the 0 for fractions that need it
+							end
 
-        shifts = shifts + 1
+							local rawtime = string.format("%d.%s", seconds, fraction)
+							local shifttime = tonumber(string.format("%.2f", rawtime))
+							local shifttarget = goldsplits[shifts] -- Gold split for this gear
 
-        --If the game detected the clutch depressed for at least one P1 frame
-        if(clutchFrames > 0) then
-            if(seconds == 170) then
-                shiftDisplay [shifts] = (shifts .. ": EARLY")
-            else
-                shiftDisplay [shifts] = (shifts .. ": " .. string.format("%x",seconds) .. "." .. string.format("%x",fraction) .. "(" .. clutchFrames.. ")" )
-            end
+							if shifttime and shifttarget then -- Nullcheck prevents oddball errors
+								calcDisposition(shifttime, shifttarget)
+							end
 
-        --If we get here, the input was dropped
-        else
-            shiftDisplay[shifts] = (shifts .. ": INPUT DROP (0)")
+							local txtcolor
+							if shifttime == shifttarget then -- Compare to gold split
+								txtcolor = "gold"
+							elseif disposition < 15 then -- We've missed less than 15 frames
+								txtcolor = "green"
+							else
+								txtcolor = "red"
+							end
 
-        end
+							shiftDisplay[shifts] = {
+								str = string.format("%d: %.2f (%d leeway, %d clutch)", shifts, shifttime, 15 - disposition, clutchFrames),
+								color = txtcolor
+							}
+				  	end
+				else -- If we get here, the input was dropped
+					shiftDisplay[shifts] = {
+						str = string.format("%d: INPUT DROP", shifts),
+						color = "red"
+					}
+				end
 
-        clutchFrames = 0
+				clutchFrames = 0
+		end
 
-    end
+		-- Reinstate on reset
+		if isResetPressed(input) then
+			shifts = 0
+			clutchFrames = 0
+			shiftDisplay = {}
+			disposition = 0
+		end
 
-    --Reinitialize on reset press
-    if (input == 7) then
-        shifts = 0
-        clutchFrames = 0
-        shiftDisplay = {}
-    end
+		-- Draw GUI
+		for gearvalue,gear in ipairs(shiftDisplay) do
+				if gearvalue > 9 then break end -- Skip 10th gear, because the time is captured too early
+				gui.text(0, gearvalue * 12 + 300, gear.str, gear.color)
+		end
 
-    --Output full array!
-    for i,v in ipairs(shiftDisplay) do
-        gui.text(0, i * 12 + 300, v , "red")
-    end
+		-- Set last input
+		lastinput = input
 
-    lastinput = input
-
-    emu.frameadvance()
+		-- Advance frame
+		emu.frameadvance()
 end
