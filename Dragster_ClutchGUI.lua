@@ -5,8 +5,9 @@ Date 2017-09-12
 Written by Elipsis
 Modified by Bayrock
 
-This script was written and tested for BizHawk.  Basically, it will track and display how the clutch is used throughout a run.  The format is as follows.
+This script was written and tested for BizHawk.  Basically, it will track and display how the clutch is used throughout a run.
 
+The format is as follows:
 InputNumber: TimeOfButtonRelease (EstimatedLeeway, clutchFrames)
 
 Elipsis Note: I had to account for the fact that this game only processes inputs for player 1 on every other frame.  This means that it is possible to do a 1/60th second button press on an odd frame and not get a clutch.
@@ -41,6 +42,9 @@ local function calcDisposition(time, targettime)
 	local newdispo = (time/0.03) - (targettime/0.03)
 	disposition = disposition + math.abs(newdispo)
 end
+
+local seconds, fraction, input,
+transmission, activePlayer
 
 -- Script declaration
 while true do
