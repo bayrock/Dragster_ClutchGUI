@@ -1,6 +1,8 @@
 ## Dragster_ClutchGUI
 Practice your Dragster (Atari 2600) inputs against the ultimate 5.57 strategy.
 
+![Screenshot](http://f.bay.rocks/UrLnM)
+
 Intended for use with BizHawk emulator.
 
 ### Usage
