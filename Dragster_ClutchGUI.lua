@@ -26,6 +26,10 @@ local goldsplits = { -- The golden 5.57 shifts
 	2.53, 2.90, 3.34, 3.64, 3.90, 5.57
 }
 
+local function RunScript(script)
+	while true do script() end
+end
+
 local function isClutchPressed(inp, activePly)
 	return inp == 11 and activePly == 0
 end
@@ -47,7 +51,7 @@ local seconds, fraction, input,
 transmission, activePlayer
 
 -- Script declaration
-while true do
+RunScript(function()
 	-- Read Memory
 	seconds = memory.readbyte(0x33,"Main RAM")
 	fraction = memory.readbyte(0x35,"Main RAM")
@@ -125,4 +129,4 @@ while true do
 
 	-- Advance frame
 	emu.frameadvance()
-end
+end)
