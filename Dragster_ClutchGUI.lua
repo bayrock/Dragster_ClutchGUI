@@ -70,7 +70,7 @@ while true do
 				str = string.format("%d: EARLY", shifts),
 				color = "red"
 			}
-		elseif clutchFrames > 0 then
+		elseif clutchFrames > 0 and fraction < 100 then
 			if fraction < 10 then
 				fraction = "0"..fraction -- add the 0 for fractions that need it
 			end
@@ -99,7 +99,7 @@ while true do
 		else -- If we get here, the input was dropped
 			shiftDisplay[shifts] = {
 				str = string.format("%d: INPUT DROP", shifts),
-				color = "red"
+				color = "gray"
 			}
 		end
 
