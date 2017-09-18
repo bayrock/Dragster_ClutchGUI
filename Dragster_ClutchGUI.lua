@@ -21,9 +21,9 @@ local shifts = 0
 local clutchFrames = 0
 local shiftDisplay = {}
 
-local goldsplits = { -- The golden 5.57 shifts
-	0.00, 0.30, 1.00, 1.80,
-	2.53, 2.90, 3.34, 3.64, 3.90, 5.57
+local goldsplits = { -- The golden 5.57 shifts (alter if you want)
+	0.03, 0.33, 1.03, 1.83,
+	2.56, 2.93, 3.37, 3.67, 3.93, 5.57
 }
 
 local function RunScript(script)
@@ -42,13 +42,27 @@ local function isResetPressed(inp)
 	return inp == 7
 end
 
+local function isResetReleased(inp, lastinp)
+	return inp == 15 and lastinp == 7
+end
+
+local function ResetScript()
+	shiftDisplay = {}
+	shifts = 0
+	clutchFrames = 0
+	disposition = 0
+end
+
 local function calcDisposition(time, targettime)
 	local newdispo = (time/0.03) - (targettime/0.03)
 	disposition = disposition + math.abs(newdispo)
 end
 
-local seconds, fraction, input,
-transmission, activePlayer
+-- Support loading from savestates
+event.onloadstate(function() ResetScript() end)
+
+local seconds, fraction, input, transmission,
+activePlayer, rngSeed, curSeed
 
 -- Script declaration
 RunScript(function()
@@ -56,8 +70,9 @@ RunScript(function()
 	seconds = memory.readbyte(0x33,"Main RAM")
 	fraction = memory.readbyte(0x35,"Main RAM")
 	input = memory.readbyte(0x2D,"Main RAM")
-	transmission = memory.readbyte(0x4C,"Main RAM")
+	--transmission = memory.readbyte(0x4C,"Main RAM")
 	activePlayer = memory.readbyte(0x0F,"Main RAM")
+	rngSeed = memory.readbyte(0x01,"Main RAM")
 
 	-- Clutch is down
 	if isClutchPressed(input, activePlayer) then
@@ -112,11 +127,14 @@ RunScript(function()
 
 	-- Reinstate on reset
 	if isResetPressed(input) then
-		shifts = 0
-		clutchFrames = 0
-		shiftDisplay = {}
-		disposition = 0
+		ResetScript()
 	end
+
+	if isResetReleased(input, lastinput) then
+		curSeed = string.format("Seed: %d", rngSeed)
+	end
+
+	--gui.text(0, 300, curSeed or "", "blue") -- Display the current seed
 
 	-- Draw GUI
 	for gearvalue,gear in ipairs(shiftDisplay) do
